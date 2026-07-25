@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
 import baileysPkg from '@whiskeysockets/baileys';
 const makeWASocket = baileysPkg.default ?? baileysPkg.makeWASocket ?? baileysPkg;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileysPkg;
@@ -72,6 +73,7 @@ async function updateRemark(spreadsheetId, sheetName, rowIndex, remarkText) {
 
 // ---------- WhatsApp (Baileys) ----------
 let sock;
+let currentQR = null; // holds the latest QR string so /qr can render it as an image
 
 async function startWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
@@ -90,8 +92,9 @@ async function startWhatsApp() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\nScan this QR code with the WhatsApp account you are dedicating to reminders:\n');
-      qrcode.generate(qr, { small: true });
+      currentQR = qr;
+      console.log('\nQR code ready — open your server URL + /qr in a browser to scan it clearly.\n');
+      qrcode.generate(qr, { small: true }); // still print ASCII as a backup
     }
 
     if (connection === 'close') {
@@ -109,6 +112,7 @@ async function startWhatsApp() {
         logger.error('Logged out — delete the auth_info folder and restart to re-scan a QR code.');
       }
     } else if (connection === 'open') {
+      currentQR = null;
       logger.info('WhatsApp connected.');
       rescheduleAllJobs(); // resume any jobs that were running before a restart
     }
@@ -206,6 +210,23 @@ const app = express();
 app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+app.get('/qr', async (req, res) => {
+  if (!currentQR) {
+    return res.send('<h2>No QR code right now.</h2><p>Either already connected, or still starting up — refresh in a few seconds.</p>');
+  }
+  const dataUrl = await QRCode.toDataURL(currentQR, { width: 400, margin: 2 });
+  res.send(`
+    <html>
+      <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
+        <h2>Scan with WhatsApp → Settings → Linked Devices</h2>
+        <img src="${dataUrl}" width="400" height="400" />
+        <p>This page auto-refreshes every 10 seconds until you scan it.</p>
+        <script>setTimeout(() => location.reload(), 10000);</script>
+      </body>
+    </html>
+  `);
+});
 
 app.post('/webhook', async (req, res) => {
   const { spreadsheetId, sheetName, rowIndex, name, whatsappNumber, task, deadline, intervalHours } = req.body;
