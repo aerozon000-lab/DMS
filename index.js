@@ -1,3 +1,6 @@
+import { webcrypto } from 'crypto';
+if (!globalThis.crypto) globalThis.crypto = webcrypto; // Baileys needs this global; not all Node versions expose it by default
+
 import 'dotenv/config';
 import express from 'express';
 import fs from 'fs';
