@@ -4,11 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
-import {
-  default as makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason
-} from '@whiskeysockets/baileys';
+import baileysPkg from '@whiskeysockets/baileys';
+const makeWASocket = baileysPkg.default ?? baileysPkg.makeWASocket ?? baileysPkg;
+const { useMultiFileAuthState, DisconnectReason } = baileysPkg;
 import { google } from 'googleapis';
 
 // ---------- config ----------
