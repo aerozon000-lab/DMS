@@ -9,7 +9,7 @@ import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import baileysPkg from '@whiskeysockets/baileys';
 const makeWASocket = baileysPkg.default ?? baileysPkg.makeWASocket ?? baileysPkg;
-const { useMultiFileAuthState, DisconnectReason } = baileysPkg;
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileysPkg;
 import { google } from 'googleapis';
 
 // ---------- config ----------
@@ -75,9 +75,11 @@ let sock;
 
 async function startWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
+  const { version } = await fetchLatestBaileysVersion(); // avoids 405 "outdated client" rejections
 
   sock = makeWASocket({
     auth: state,
+    version,
     logger: pino({ level: 'warn' }),
     printQRInTerminal: false
   });
