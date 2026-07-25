@@ -75,7 +75,7 @@ async function startWhatsApp() {
 
   sock = makeWASocket({
     auth: state,
-    logger: pino({ level: 'silent' }),
+    logger: pino({ level: 'warn' }),
     printQRInTerminal: false
   });
 
@@ -92,9 +92,17 @@ async function startWhatsApp() {
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      logger.warn({ statusCode }, 'Connection closed');
-      if (shouldReconnect) startWhatsApp();
-      else logger.error('Logged out — delete the auth_info folder and restart to re-scan a QR code.');
+      // Log the FULL error, not just the status code, so we can see the real cause
+      logger.warn(
+        { statusCode, errorMessage: lastDisconnect?.error?.message, fullError: lastDisconnect?.error },
+        'Connection closed'
+      );
+      if (shouldReconnect) {
+        // wait 5s before retrying instead of hammering reconnects instantly
+        setTimeout(() => startWhatsApp(), 5000);
+      } else {
+        logger.error('Logged out — delete the auth_info folder and restart to re-scan a QR code.');
+      }
     } else if (connection === 'open') {
       logger.info('WhatsApp connected.');
       rescheduleAllJobs(); // resume any jobs that were running before a restart
