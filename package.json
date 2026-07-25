@@ -1,0 +1,21 @@
+{
+  "name": "whatsapp-task-reminder",
+  "version": "1.0.0",
+  "description": "Sends repeating WhatsApp task reminders from a Google Sheet until the employee replies with a stop keyword.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^140.0.1",
+    "pino": "^9.3.2",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
