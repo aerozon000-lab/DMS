@@ -146,19 +146,24 @@ function scheduleJob(key, job) {
   const intervalMs = job.intervalHours * 60 * 60 * 1000;
 
   const fire = async () => {
-    // stop automatically if the deadline has passed
-    if (job.deadline && Date.now() > new Date(job.deadline).getTime()) {
+    try {
+      // stop automatically if the deadline has passed
+      if (job.deadline && Date.now() > new Date(job.deadline).getTime()) {
+        await sendMessage(
+          job.whatsappNumber,
+          `⏰ Deadline passed for task: "${job.task}". Please update as soon as possible.`
+        );
+        await stopJob(key, 'Deadline passed (no response)');
+        return;
+      }
       await sendMessage(
         job.whatsappNumber,
-        `⏰ Deadline passed for task: "${job.task}". Please update as soon as possible.`
+        `🔔 Reminder for ${job.name}: "${job.task}"${job.deadline ? `\nDeadline: ${new Date(job.deadline).toLocaleString()}` : ''}\n\nReply "${STOP_KEYWORD}" once this is complete.`
       );
-      await stopJob(key, 'Deadline passed (no response)');
-      return;
+    } catch (err) {
+      // Log the real error instead of letting it crash the process or fail silently
+      logger.error({ err: err.message, stack: err.stack, key }, 'Failed to send reminder message');
     }
-    await sendMessage(
-      job.whatsappNumber,
-      `🔔 Reminder for ${job.name}: "${job.task}"${job.deadline ? `\nDeadline: ${new Date(job.deadline).toLocaleString()}` : ''}\n\nReply "${STOP_KEYWORD}" once this is complete.`
-    );
   };
 
   fire(); // send the first reminder immediately
@@ -215,12 +220,12 @@ app.get('/qr', async (req, res) => {
   if (!currentQR) {
     return res.send('<h2>No QR code right now.</h2><p>Either already connected, or still starting up — refresh in a few seconds.</p>');
   }
-  const dataUrl = await QRCode.toDataURL(currentQR, { width: 400, margin: 2 });
+  const dataUrl = await QRCode.toDataURL(currentQR, { width: 500, margin: 4 });
   res.send(`
     <html>
       <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
         <h2>Scan with WhatsApp → Settings → Linked Devices</h2>
-        <img src="${dataUrl}" width="400" height="400" />
+        <img src="${dataUrl}" width="500" height="500" />
         <p>This page auto-refreshes every 10 seconds until you scan it.</p>
         <script>setTimeout(() => location.reload(), 10000);</script>
       </body>
@@ -256,4 +261,12 @@ app.post('/webhook', async (req, res) => {
 app.listen(PORT, () => {
   logger.info(`Server listening on port ${PORT}`);
   startWhatsApp();
+});
+
+// Safety net: log unexpected errors instead of letting them crash the server silently
+process.on('unhandledRejection', (err) => {
+  logger.error({ err: err?.message, stack: err?.stack }, 'Unhandled rejection');
+});
+process.on('uncaughtException', (err) => {
+  logger.error({ err: err?.message, stack: err?.stack }, 'Uncaught exception');
 });
